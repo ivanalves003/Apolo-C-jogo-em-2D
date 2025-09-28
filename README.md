@@ -7,14 +7,15 @@ Um jogo simples em C que simula a física de colocar uma nave em órbita ao redo
 ---
 
 ## 🖼️ Preview  
-<img width="1104" height="580" alt="tela" src="https://github.com/user-attachments/assets/58722465-8d90-455b-adc2-7fc273bc607a" />
 
 ### Tela inicial
-![Menu inicial](./screenshots/menu.png)  
+<img width="1104" height="580" alt="tela" src="https://github.com/user-attachments/assets/8b8ec452-ae94-4e75-845d-c7ec9b77914b" />
 
-### Jogo em execução
-![Órbita inicial](./screenshots/orbita1.png)  
-![Órbita estável](./screenshots/orbita2.png)  
+### Simulação em execução
+
+<img width="1919" height="1079" alt="jogo" src="https://github.com/user-attachments/assets/a127cda0-e4bd-4f6c-b343-4a8fb9cd1331" />
+
+<img width="1919" height="1079" alt="orbita" src="https://github.com/user-attachments/assets/99f20605-37b5-4a74-81ea-4c6a5bc0ff6c" />
 
 ---
 
