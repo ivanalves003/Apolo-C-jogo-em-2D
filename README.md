@@ -7,6 +7,7 @@ Um jogo simples em C que simula a física de colocar uma nave em órbita ao redo
 ---
 
 ## 🖼️ Preview  
+<img width="1104" height="580" alt="tela" src="https://github.com/user-attachments/assets/58722465-8d90-455b-adc2-7fc273bc607a" />
 
 ### Tela inicial
 ![Menu inicial](./screenshots/menu.png)  
