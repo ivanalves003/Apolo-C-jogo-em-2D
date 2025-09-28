@@ -1,0 +1,910 @@
+VERSAO CODIGO 1 ANTES DE IMPLEMENTAR
+
+
+#include "PIG.h" // Biblioteca gráfica usada na simulação
+
+#define     QTD_MAX_PROJETEIS   100000 // Limite máximo de projéteis
+#define     QTD_MAX_RASTRO      100000 // Limite máximo de pontos de rastro (trajetória)
+
+typedef struct vetor
+{
+    double x, y;
+} Vetor;
+
+typedef struct corpo
+{
+    double massa;
+    double raio;
+    vetor posicao;
+    vetor velocidade;
+    vetor aceleracao;
+} Corpo;
+
+Corpo planeta;
+Corpo projeteis[QTD_MAX_PROJETEIS];
+int qtdProjeteisAtuais;
+
+int spritePlaneta, spriteProjetil, spriteCeu;
+int timerGeral;
+Vetor rastro[QTD_MAX_RASTRO];
+int qtdRastro;
+
+int rotacao;
+
+
+void menu(){
+
+    int test;
+    printf("bem-vindo/n/nsimulação de voo com gravidade");
+    printf("\naperte 1 para comecar\n\n");
+    scanf("%d", &test);
+
+
+}
+void adicionarProjetil(Vetor posicao, Vetor velocidade, Vetor aceleracao, double massa, double raio)
+{
+    int i = qtdProjeteisAtuais;
+
+    projeteis[i].posicao = posicao;
+    projeteis[i].velocidade = velocidade;
+    projeteis[i].aceleracao = aceleracao;
+    projeteis[i].massa = massa;
+    projeteis[i].raio = raio;
+
+    qtdProjeteisAtuais = qtdProjeteisAtuais + 1;
+    qtdRastro = 0;
+}
+
+void configuracoesIniciais()
+{
+    PIG_criarJanela("simulação foguete", 920, 800);
+
+    qtdProjeteisAtuais = 0;
+    qtdRastro = 0;
+
+    spritePlaneta   = PIG_criarSprite("imagens\\terraNoite.png", 0);
+    spriteProjetil  = PIG_criarSprite("imagens\\Nave.png", 0);
+    spriteCeu       = PIG_criarSprite("imagens\\ceu.png", 0);
+
+    planeta.massa = 1000000.0;
+    planeta.raio = 350.0;
+    planeta.aceleracao.x = 0;
+    planeta.aceleracao.y = 0;
+    planeta.velocidade.x = 0;
+    planeta.velocidade.y = 0;
+    planeta.posicao.x = LARG_TELA/2.0;
+    planeta.posicao.y = ALT_TELA/2.0;
+
+    timerGeral = PIG_criarTimer();
+}
+
+void desenharProjeteis()
+{
+    for(int i=0; i<qtdProjeteisAtuais; i++)
+    {
+
+        PIG_desenharSprite(spriteProjetil,
+            XVirtualParaReal(projeteis[i].posicao.x),
+            YVirtualParaReal(projeteis[i].posicao.y),
+            tamanhoVirtualParaReal(50.0*projeteis[i].raio),
+            tamanhoVirtualParaReal(50.0*projeteis[i].raio),
+            rotacao, 1, BRANCO);
+
+            if(PIG_tecla == TECLA_v){
+
+                rotacao = (rotacao + 1 )*(-1);
+            }
+    }
+}
+
+void desenharRastro()
+{
+    for(int i=0; i<qtdRastro-1; i++)
+    {
+        double xAtual = rastro[i].x;
+        double yAtual = rastro[i].y;
+
+        double xProximo = rastro[i+1].x;
+        double yProximo = rastro[i+1].y;
+
+        PIG_desenharLinha(XVirtualParaReal(xAtual),
+            YVirtualParaReal(yAtual),
+            XVirtualParaReal(xProximo),
+            YVirtualParaReal(yProximo), VERMELHO, 2);
+    }
+}
+
+void desenhar()
+{
+    PIG_iniciarDesenho();
+
+    PIG_desenharSprite(spriteCeu, 0, 0, LARG_TELA, ALT_TELA, 0, 0, BRANCO);
+
+    PIG_desenharSprite(spritePlaneta,
+        XVirtualParaReal(planeta.posicao.x),
+        YVirtualParaReal(planeta.posicao.y),
+        tamanhoVirtualParaReal(2.0*planeta.raio),
+        tamanhoVirtualParaReal(2.0*planeta.raio), 0, 1, BRANCO);
+
+    desenharRastro();
+    desenharProjeteis();
+
+    PIG_encerrarDesenho();
+}
+
+void verificarTeclado()
+{
+    if(PIG_tecla == TECLA_ENTER)
+    {
+        double x = planeta.posicao.x;
+        double y = planeta.posicao.y + planeta.raio + 20;
+
+        adicionarProjetil({x, y},
+            {4, 0}, // Velocidade inicial (horizontal)
+            {0, 0.01},
+            1.0, 2.0);
+    }
+}
+
+// Aplica as fórmulas de colisão elástica entre dois corpos (p1 e p2)
+/*void aplicarColisao(Corpo* p1, Corpo* p2)
+{
+    // Variáveis para as massas
+    double m1 = p1->massa;
+    double m2 = p2->massa;
+
+    // Velocidades iniciais
+    double u1x = p1->velocidade.x;
+    double u1y = p1->velocidade.y;
+    double u2x = p2->velocidade.x;
+    double u2y = p2->velocidade.y;
+
+    // Posições iniciais
+    double x1 = p1->posicao.x;
+    double y1 = p1->posicao.y;
+    double x2 = p2->posicao.x;
+    double y2 = p2->posicao.y;
+
+    // Módulos das velocidades
+    double u1 = sqrt(u1x*u1x + u1y*u1y);
+    double u2 = sqrt(u2x*u2x + u2y*u2y);
+
+    // Cálculo dos ângulos de colisão
+    double a1 = atan2(y2 - y1, x2 - x1);
+    double b1 = atan2(u1y, u1x);
+    double c1 = b1 - a1;
+
+    double a2 = atan2(y1 - y2, x1 - x2);
+    double b2 = atan2(u2y, u2x);
+    double c2 = b2 - a2;
+
+    // Decomposição das velocidades
+    double u12 = u1 * cos(c1);
+    double u11 = u1 * sin(c1);
+    double u21 = u2 * cos(c2);
+    double u22 = u2 * sin(c2);
+
+    // Cálculo das velocidades após colisão
+    double v12 = (((m1 - m2) * u12) - (2 * m2 * u21)) / (m1 + m2);
+    double v21 = (((m1 - m2) * u21) + (2 * m1 * u12)) / (m1 + m2);
+
+    // Transformação de volta para o sistema cartesiano
+    double v1x = u11 * (-sin(a1)) + v12 * cos(a1);
+    double v1y = u11 * cos(a1) + v12 * sin(a1);
+    double v2x = u22 * (-sin(a2)) - v21 * cos(a2);
+    double v2y = u22 * cos(a2) - v21 * sin(a2);
+
+    // Atualiza as velocidades dos corpos
+    p1->velocidade.x = v1x;
+    p1->velocidade.y = v1y;
+    p2->velocidade.x = v2x;
+    p2->velocidade.y = v2y;
+}
+*/
+
+// Atualiza a física dos projéteis (gravidade, aceleração, movimento e colisão)
+void atualizarProjeteis()
+{
+    Vetor forca;
+    double CONSTANTE_GRAVITACIONAL = 0.005;
+    double CONSTANTE_RESTITUICAO = 0.9;
+
+    for(int i=0; i<qtdProjeteisAtuais; i++)
+    {
+        double xProjetil = projeteis[i].posicao.x;
+        double yProjetil = projeteis[i].posicao.y;
+        double massaProjetil = projeteis[i].massa;
+        double raioProjetil = projeteis[i].raio;
+
+        double xPlaneta = planeta.posicao.x;
+        double yPlaneta = planeta.posicao.y;
+        double massaPlaneta = planeta.massa;
+        double raioPlaneta = planeta.raio;
+
+        double distancia = distanciaEntrePontos(xProjetil, yProjetil, xPlaneta, yPlaneta);
+        if(distancia < 1) distancia = 1; // Evita divisão por zero
+
+        // Cálculo da força gravitacional
+        double produtoMassas = massaProjetil * massaPlaneta;
+        double produtoDistancia = (distancia * distancia);
+        double forcaGravitacional = CONSTANTE_GRAVITACIONAL * produtoMassas / produtoDistancia;
+
+        // Cálculo dos vetores de força
+        double cos = (xPlaneta - xProjetil) / distancia;
+        double sen = (yPlaneta - yProjetil) / distancia;
+
+        forca.x = forcaGravitacional * cos;
+        forca.y = forcaGravitacional * sen;
+
+        // Atualiza aceleração, velocidade e posição do projétil
+        projeteis[i].aceleracao.x = forca.x / massaProjetil;
+        projeteis[i].aceleracao.y = forca.y / massaProjetil;
+
+        projeteis[i].velocidade.x += projeteis[i].aceleracao.x;
+        projeteis[i].velocidade.y += projeteis[i].aceleracao.y;
+
+        projeteis[i].posicao.x += projeteis[i].velocidade.x;
+        projeteis[i].posicao.y += projeteis[i].velocidade.y;
+
+        // Verifica colisão com o planeta
+        if(distanciaEntrePontos(projeteis[i].posicao.x, projeteis[i].posicao.y,
+                                xPlaneta, yPlaneta) < raioProjetil + raioPlaneta*0.982)
+        {
+            // Reposiciona o projétil para evitar "enterrar" no planeta
+            projeteis[i].posicao.x = xProjetil;
+            projeteis[i].posicao.y = yProjetil;
+
+            // Aplica amortecimento na colisão
+            projeteis[i].velocidade.x *= CONSTANTE_RESTITUICAO;
+            projeteis[i].velocidade.y *= CONSTANTE_RESTITUICAO;
+
+            //aplicarColisao(&planeta, &projeteis[i]); // Aplica colisão elástica
+        }
+    }
+}
+
+/*void atualizarRastro()
+{
+    int indiceProjetil = qtdProjeteisAtuais - 1;
+
+    rastro[qtdRastro].x = projeteis[indiceProjetil].posicao.x;
+    rastro[qtdRastro].y = projeteis[indiceProjetil].posicao.y;
+
+    if(qtdRastro < QTD_MAX_RASTRO - 1)
+    {
+        qtdRastro++;
+    }
+}*/
+
+// Função principal
+int main(int argc, char* args[])
+{
+
+    menu(); //chama a funcao de inicio que configura o menu.
+
+    configuracoesIniciais(); // Configura o jogo
+
+    while(PIG_jogoRodando()     == 1) // Loop principal
+    {
+        if(PIG_tempoDecorrido(timerGeral) >= 0.01) // Atualiza a cada 0.01s
+        {
+            PIG_reiniciarTimer(timerGeral);
+
+            PIG_atualizarJanela();
+            verificarTeclado(); // Lê entradas do teclado
+            atualizarProjeteis(); // Aplica física
+            //atualizarRastro(); // Atualiza trajetória
+            atualizarCamera(); // Atualiza visualização
+
+            desenhar(); // Redesenha a tela
+        }
+    }
+
+    PIG_finalizarJanela(); // Encerra o jogo
+
+    return 0;
+}
+
+
+
+
+
+VERSAO 2....
+
+
+#include "PIG.h"
+
+#define     QTD_MAX_PROJETEIS   100000
+#define     QTD_MAX_RASTRO      100000
+
+typedef struct vetor
+{
+    double x, y;
+} Vetor;
+
+typedef struct corpo
+{
+    double massa;
+    double raio;
+    vetor posicao;
+    vetor velocidade;
+    vetor aceleracao;
+} Corpo;
+
+Corpo planeta;
+Corpo projeteis[QTD_MAX_PROJETEIS];
+int qtdProjeteisAtuais;
+
+int spritePlaneta, spriteProjetil, spriteCeu;
+int timerGeral;
+Vetor rastro[QTD_MAX_RASTRO];
+int qtdRastro;
+
+
+
+int rotacao;
+
+
+void menu(){
+
+    int test;
+    printf("bem-vindo/n/nsimulação de voo com gravidade");
+    printf("\naperte 1 para comecar\n\n");
+    scanf("%d", &test);
+
+
+}
+
+
+
+
+void adicionarProjetil(Vetor posicao, Vetor velocidade, Vetor aceleracao, double massa, double raio)
+{
+    int i = qtdProjeteisAtuais;
+
+    projeteis[i].posicao = posicao;
+    projeteis[i].velocidade = velocidade;
+    projeteis[i].aceleracao = aceleracao;
+    projeteis[i].massa = massa;
+    projeteis[i].raio = raio;
+
+    qtdProjeteisAtuais = qtdProjeteisAtuais + 1;
+    qtdRastro = 0;
+}
+
+void configuracoesIniciais()
+{
+    PIG_criarJanela("simulação foguete", 920, 800);
+
+    qtdProjeteisAtuais = 1;
+    qtdRastro = 0;
+
+    spritePlaneta   = PIG_criarSprite("imagens\\terraNoite.png", 0);
+    spriteProjetil  = PIG_criarSprite("imagens\\Nave.png", 0);
+    spriteCeu       = PIG_criarSprite("imagens\\ceu.png", 0);
+
+    planeta.massa = 1000000.0;
+    planeta.raio = 350.0;
+    planeta.aceleracao.x = 0;
+    planeta.aceleracao.y = 0;
+    planeta.velocidade.x = 0;
+    planeta.velocidade.y = 0;
+    planeta.posicao.x = LARG_TELA/2.0;
+    planeta.posicao.y = ALT_TELA/2.0;
+
+    timerGeral = PIG_criarTimer();
+}
+
+void desenharProjeteis()
+{
+
+
+        PIG_desenharSprite(spriteProjetil,
+            XVirtualParaReal(projeteis[1].posicao.x),
+            YVirtualParaReal(projeteis[1].posicao.y),
+            tamanhoVirtualParaReal(50.0*projeteis[1].raio),
+            tamanhoVirtualParaReal(50.0*projeteis[1].raio),
+            rotacao, 1, BRANCO);
+
+
+
+}
+
+void desenharRastro()
+{
+    for(int i=0; i<qtdRastro-1; i++)
+    {
+        double xAtual = rastro[i].x;
+        double yAtual = rastro[i].y;
+
+        double xProximo = rastro[i+1].x;
+        double yProximo = rastro[i+1].y;
+
+        PIG_desenharLinha(XVirtualParaReal(xAtual),
+            YVirtualParaReal(yAtual),
+            XVirtualParaReal(xProximo),
+            YVirtualParaReal(yProximo), VERMELHO, 2);
+    }
+}
+
+void desenhar()
+{
+    PIG_iniciarDesenho();
+
+    PIG_desenharSprite(spriteCeu, 0, 0, LARG_TELA, ALT_TELA, 0, 0, BRANCO);
+
+    PIG_desenharSprite(spritePlaneta,
+        XVirtualParaReal(planeta.posicao.x),
+        YVirtualParaReal(planeta.posicao.y),
+        tamanhoVirtualParaReal(2.0*planeta.raio),
+        tamanhoVirtualParaReal(2.0*planeta.raio), 0, 1, BRANCO);
+
+    desenharRastro();
+    desenharProjeteis();
+
+    PIG_encerrarDesenho();
+}
+
+void verificarTeclado()
+{
+
+        double x = planeta.posicao.x;
+        double y = planeta.posicao.y + planeta.raio + 20;
+
+        adicionarProjetil({x, y},
+            {3, 0}, // Velocidade inicial (horizontal)
+            {0, 0.01},
+            1.0, 2.0);
+
+}
+
+
+// Atualiza a física dos projéteis (gravidade, aceleração, movimento e colisão)
+
+void atualizarProjeteis()
+{
+    Vetor forca;
+    double CONSTANTE_GRAVITACIONAL = 0.005;
+    double CONSTANTE_RESTITUICAO = 0.9;
+
+    for(int i=0; i<qtdProjeteisAtuais; i++)
+    {
+        double xProjetil = projeteis[i].posicao.x;
+        double yProjetil = projeteis[i].posicao.y;
+        double massaProjetil = projeteis[i].massa;
+        double raioProjetil = projeteis[i].raio;
+
+        double xPlaneta = planeta.posicao.x;
+        double yPlaneta = planeta.posicao.y;
+        double massaPlaneta = planeta.massa;
+        double raioPlaneta = planeta.raio;
+
+        double distancia = distanciaEntrePontos(xProjetil, yProjetil, xPlaneta, yPlaneta);
+        if(distancia < 1) distancia = 1; // Evita divisão por zero
+
+        // Cálculo da força gravitacional
+        double produtoMassas = massaProjetil * massaPlaneta;
+        double produtoDistancia = (distancia * distancia);
+        double forcaGravitacional = CONSTANTE_GRAVITACIONAL * produtoMassas / produtoDistancia;
+
+        // Cálculo dos vetores de força
+        double cos = (xPlaneta - xProjetil) / distancia;
+        double sen = (yPlaneta - yProjetil) / distancia;
+
+        forca.x = forcaGravitacional * cos;
+        forca.y = forcaGravitacional * sen;
+
+        // Atualiza aceleração, velocidade e posição do projétil
+        projeteis[i].aceleracao.x = forca.x / massaProjetil;
+        projeteis[i].aceleracao.y = forca.y / massaProjetil;
+
+        projeteis[i].velocidade.x += projeteis[i].aceleracao.x;
+        projeteis[i].velocidade.y += projeteis[i].aceleracao.y;
+
+        projeteis[i].posicao.x += projeteis[i].velocidade.x;
+        projeteis[i].posicao.y += projeteis[i].velocidade.y;
+
+        // Verifica colisão com o planeta
+        if(distanciaEntrePontos(projeteis[i].posicao.x, projeteis[i].posicao.y,
+                                xPlaneta, yPlaneta) < raioProjetil + raioPlaneta*0.982)
+        {
+            // Reposiciona o projétil para evitar "enterrar" no planeta
+            projeteis[i].posicao.x = xProjetil;
+            projeteis[i].posicao.y = yProjetil;
+
+            // Aplica amortecimento na colisão
+            projeteis[i].velocidade.x *= CONSTANTE_RESTITUICAO;
+            projeteis[i].velocidade.y *= CONSTANTE_RESTITUICAO;
+
+            //aplicarColisao(&planeta, &projeteis[i]); // Aplica colisão elástica
+        }
+    }
+}
+
+
+/*void atualizarRastro()
+{
+    int indiceProjetil = qtdProjeteisAtuais - 1;
+
+    rastro[qtdRastro].x = projeteis[indiceProjetil].posicao.x;
+    rastro[qtdRastro].y = projeteis[indiceProjetil].posicao.y;
+
+    if(qtdRastro < QTD_MAX_RASTRO - 1)
+    {
+        qtdRastro++;
+    }
+}*/
+
+// Aplica as fórmulas de colisão elástica entre dois corpos (p1 e p2)
+/*void aplicarColisao(Corpo* p1, Corpo* p2)
+{
+    // Variáveis para as massas
+    double m1 = p1->massa;
+    double m2 = p2->massa;
+
+    // Velocidades iniciais
+    double u1x = p1->velocidade.x;
+    double u1y = p1->velocidade.y;
+    double u2x = p2->velocidade.x;
+    double u2y = p2->velocidade.y;
+
+    // Posições iniciais
+    double x1 = p1->posicao.x;
+    double y1 = p1->posicao.y;
+    double x2 = p2->posicao.x;
+    double y2 = p2->posicao.y;
+
+    // Módulos das velocidades
+    double u1 = sqrt(u1x*u1x + u1y*u1y);
+    double u2 = sqrt(u2x*u2x + u2y*u2y);
+
+    // Cálculo dos ângulos de colisão
+    double a1 = atan2(y2 - y1, x2 - x1);
+    double b1 = atan2(u1y, u1x);
+    double c1 = b1 - a1;
+
+    double a2 = atan2(y1 - y2, x1 - x2);
+    double b2 = atan2(u2y, u2x);
+    double c2 = b2 - a2;
+
+    // Decomposição das velocidades
+    double u12 = u1 * cos(c1);
+    double u11 = u1 * sin(c1);
+    double u21 = u2 * cos(c2);
+    double u22 = u2 * sin(c2);
+
+    // Cálculo das velocidades após colisão
+    double v12 = (((m1 - m2) * u12) - (2 * m2 * u21)) / (m1 + m2);
+    double v21 = (((m1 - m2) * u21) + (2 * m1 * u12)) / (m1 + m2);
+
+    // Transformação de volta para o sistema cartesiano
+    double v1x = u11 * (-sin(a1)) + v12 * cos(a1);
+    double v1y = u11 * cos(a1) + v12 * sin(a1);
+    double v2x = u22 * (-sin(a2)) - v21 * cos(a2);
+    double v2y = u22 * cos(a2) - v21 * sin(a2);
+
+    // Atualiza as velocidades dos corpos
+    p1->velocidade.x = v1x;
+    p1->velocidade.y = v1y;
+    p2->velocidade.x = v2x;
+    p2->velocidade.y = v2y;
+}
+*/
+
+// Função principal
+int main(int argc, char* args[])
+{
+
+    menu(); //chama a funcao de inicio que configura o menu.
+
+    configuracoesIniciais(); // Configura o jogo
+
+    while(PIG_jogoRodando()     == 1) // Loop principal
+    {
+        if(PIG_tempoDecorrido(timerGeral) >= 0.01) // Atualiza a cada 0.01s
+        {
+            PIG_reiniciarTimer(timerGeral);
+
+            PIG_atualizarJanela();
+            verificarTeclado(); // Lê entradas do teclado
+//            atualizarProjeteis(); // Aplica física
+            //atualizarRastro(); // Atualiza trajetória
+            atualizarCamera(); // Atualiza visualização
+
+            desenhar(); // Redesenha a tela
+        }
+    }
+
+    PIG_finalizarJanela(); // Encerra o jogo
+
+    return 0;
+}
+
+
+
+versão 3.... =================================== ainda tem a fisica que atualiza os projeteis
+
+#include "PIG.h"
+
+#define     QTD_MAX_RASTRO      100000
+
+typedef struct vetor
+{
+    double x, y;
+} Vetor;
+
+typedef struct corpo
+{
+    double massa;
+    double raio;
+    vetor posicao;
+    vetor velocidade;
+    vetor aceleracao;
+} Corpo;
+
+Corpo planeta;
+Corpo projeteis;
+
+int spritePlaneta, spriteProjetil, spriteCeu;
+int timerGeral;
+Vetor rastro[QTD_MAX_RASTRO];
+int qtdRastro;
+
+
+
+int rotacao;
+
+
+void menu(){
+
+    int test;
+    printf("bem-vindo/n/nsimulação de voo com gravidade");
+    printf("\naperte 1 para comecar\n\n");
+    scanf("%d", &test);
+
+}
+
+
+
+
+void adicionarProjetil(Vetor posicao, Vetor velocidade, Vetor aceleracao, double massa, double raio)
+{
+
+    projeteis.posicao = posicao;
+    projeteis.velocidade = velocidade;
+    projeteis.aceleracao = aceleracao;
+    projeteis.massa = massa;
+    projeteis.raio = raio;
+
+    qtdRastro = 0;
+}
+
+void configuracoesIniciais()
+{
+    PIG_criarJanela("simulação foguete", 1920,1080 );
+
+    qtdRastro = 0;
+
+    spritePlaneta   = PIG_criarSprite("imagens\\terraNoite.png", 0);
+    spriteProjetil  = PIG_criarSprite("imagens\\Nave.png", 0);
+    spriteCeu       = PIG_criarSprite("imagens\\ceu.png", 0);
+
+
+    //planeta
+    planeta.massa = 1000000.0;
+    planeta.raio = 350.0;
+    planeta.aceleracao.x = 0;
+    planeta.aceleracao.y = 0;
+    planeta.velocidade.x = 0;
+    planeta.velocidade.y = 0;
+    planeta.posicao.x = LARG_TELA/2.0;
+    planeta.posicao.y = ALT_TELA/2.0;
+
+
+    //nave
+
+    double x = planeta.posicao.x;
+    double y = planeta.posicao.y + planeta.raio + 200;
+
+    adicionarProjetil({x, y},
+                      {1, 1}, // Velocidade inicial (horizontal)
+                      {0.01, 0.01},
+                      2.0, 2.0);
+
+    timerGeral = PIG_criarTimer();
+}
+
+void desenharProjeteis()
+{
+
+
+        PIG_desenharSprite(spriteProjetil,
+            XVirtualParaReal(projeteis.posicao.x),
+            YVirtualParaReal(projeteis.posicao.y),
+            tamanhoVirtualParaReal(50.0*projeteis.raio),
+            tamanhoVirtualParaReal(50.0*projeteis.raio),
+            rotacao, 1, BRANCO);
+
+
+
+}
+
+void desenhar()
+{
+    PIG_iniciarDesenho();
+
+    PIG_desenharSprite(spriteCeu, 0, 0, LARG_TELA, ALT_TELA, 0, 0, BRANCO);
+
+    PIG_desenharSprite(spritePlaneta,
+        XVirtualParaReal(planeta.posicao.x),
+        YVirtualParaReal(planeta.posicao.y),
+        tamanhoVirtualParaReal(2.0*planeta.raio),
+        tamanhoVirtualParaReal(2.0*planeta.raio), 0, 1, BRANCO);
+
+    desenharProjeteis();
+
+    PIG_encerrarDesenho();
+}
+
+
+// Atualiza a física dos projéteis (gravidade, aceleração, movimento e colisão)
+
+void atualizarProjeteis()
+{
+    Vetor forca;
+    double CONSTANTE_GRAVITACIONAL = 0.005;
+    double CONSTANTE_RESTITUICAO = 0.9;
+
+        double xProjetil = projeteis.posicao.x;
+        double yProjetil = projeteis.posicao.y;
+        double massaProjetil = projeteis.massa;
+        double raioProjetil = projeteis.raio;
+
+        double xPlaneta = planeta.posicao.x;
+        double yPlaneta = planeta.posicao.y;
+        double massaPlaneta = planeta.massa;
+        double raioPlaneta = planeta.raio;
+
+        double distancia = distanciaEntrePontos(xProjetil, yProjetil, xPlaneta, yPlaneta);
+        if(distancia < 1) distancia = 1; // Evita divisão por zero
+
+        // Cálculo da força gravitacional
+        double produtoMassas = massaProjetil * massaPlaneta;
+        double produtoDistancia = (distancia * distancia);
+        double forcaGravitacional = CONSTANTE_GRAVITACIONAL * produtoMassas / produtoDistancia;
+
+        // Cálculo dos vetores de força
+        double cos = (xPlaneta - xProjetil) / distancia;
+        double sen = (yPlaneta - yProjetil) / distancia;
+
+        forca.x = forcaGravitacional * cos;
+        forca.y = forcaGravitacional * sen;
+
+        // Atualiza aceleração, velocidade e posição do projétil
+        projeteis.aceleracao.x = forca.x / massaProjetil;
+        projeteis.aceleracao.y = forca.y / massaProjetil;
+
+        projeteis.velocidade.x += projeteis.aceleracao.x;
+        projeteis.velocidade.y += projeteis.aceleracao.y;
+
+        projeteis.posicao.x += projeteis.velocidade.x;
+        projeteis.posicao.y += projeteis.velocidade.y;
+
+        // Verifica colisão com o planeta
+        if(distanciaEntrePontos(projeteis.posicao.x, projeteis.posicao.y,
+                                xPlaneta, yPlaneta) < raioProjetil + raioPlaneta*0.982)
+        {
+            // Reposiciona o projétil para evitar "enterrar" no planeta
+            projeteis.posicao.x = xProjetil;
+            projeteis.posicao.y = yProjetil;
+
+            // Aplica amortecimento na colisão
+            projeteis.velocidade.x *= CONSTANTE_RESTITUICAO;
+            projeteis.velocidade.y *= CONSTANTE_RESTITUICAO;
+
+            //aplicarColisao(&planeta, &projeteis[i]); // Aplica colisão elástica
+        }
+
+}
+
+
+/*void atualizarRastro()
+{
+    int indiceProjetil = qtdProjeteisAtuais - 1;
+
+    rastro[qtdRastro].x = projeteis[indiceProjetil].posicao.x;
+    rastro[qtdRastro].y = projeteis[indiceProjetil].posicao.y;
+
+    if(qtdRastro < QTD_MAX_RASTRO - 1)
+    {
+        qtdRastro++;
+    }
+}*/
+
+// Aplica as fórmulas de colisão elástica entre dois corpos (p1 e p2)
+/*void aplicarColisao(Corpo* p1, Corpo* p2)
+{
+    // Variáveis para as massas
+    double m1 = p1->massa;
+    double m2 = p2->massa;
+
+    // Velocidades iniciais
+    double u1x = p1->velocidade.x;
+    double u1y = p1->velocidade.y;
+    double u2x = p2->velocidade.x;
+    double u2y = p2->velocidade.y;
+
+    // Posições iniciais
+    double x1 = p1->posicao.x;
+    double y1 = p1->posicao.y;
+    double x2 = p2->posicao.x;
+    double y2 = p2->posicao.y;
+
+    // Módulos das velocidades
+    double u1 = sqrt(u1x*u1x + u1y*u1y);
+    double u2 = sqrt(u2x*u2x + u2y*u2y);
+
+    // Cálculo dos ângulos de colisão
+    double a1 = atan2(y2 - y1, x2 - x1);
+    double b1 = atan2(u1y, u1x);
+    double c1 = b1 - a1;
+
+    double a2 = atan2(y1 - y2, x1 - x2);
+    double b2 = atan2(u2y, u2x);
+    double c2 = b2 - a2;
+
+    // Decomposição das velocidades
+    double u12 = u1 * cos(c1);
+    double u11 = u1 * sin(c1);
+    double u21 = u2 * cos(c2);
+    double u22 = u2 * sin(c2);
+
+    // Cálculo das velocidades após colisão
+    double v12 = (((m1 - m2) * u12) - (2 * m2 * u21)) / (m1 + m2);
+    double v21 = (((m1 - m2) * u21) + (2 * m1 * u12)) / (m1 + m2);
+
+    // Transformação de volta para o sistema cartesiano
+    double v1x = u11 * (-sin(a1)) + v12 * cos(a1);
+    double v1y = u11 * cos(a1) + v12 * sin(a1);
+    double v2x = u22 * (-sin(a2)) - v21 * cos(a2);
+    double v2y = u22 * cos(a2) - v21 * sin(a2);
+
+    // Atualiza as velocidades dos corpos
+    p1->velocidade.x = v1x;
+    p1->velocidade.y = v1y;
+    p2->velocidade.x = v2x;
+    p2->velocidade.y = v2y;
+}
+*/
+
+// Função principal
+int main(int argc, char* args[])
+{
+
+    menu();
+    configuracoesIniciais();
+
+    while(PIG_jogoRodando() == 1)
+    {
+        if(PIG_tempoDecorrido(timerGeral) >= 0.01) // Atualiza a cada 0.01s
+        {
+            PIG_reiniciarTimer(timerGeral);
+
+            PIG_atualizarJanela();
+            atualizarProjeteis();
+            //atualizarRastro();
+            atualizarCamera();
+
+            desenhar();
+        }
+    }
+
+    PIG_finalizarJanela();
+    return 0;
+}
+
+
+versão 4....
+
+
+
