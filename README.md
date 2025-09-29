@@ -51,3 +51,22 @@ Na pasta do projeto existe um executável:
 
 ```bash
 apolo_c.exe
+atenção:> para rodar, é necessario o gcc para c/c++ no seu computador, sem ele, o arquivo nao ira rodar.
+
+Execute o arquivo.exe para testar o jogo.
+
+Compilar o projeto
+
+Instale o Code::Blocks
+ e o compilador GCC
+.
+
+Abra o arquivo projeto.cbp dentro da pasta src pelo Code::Blocks.
+
+Compile e execute o projeto pela IDE.
+
+📚 Tecnologias Utilizadas
+
+Linguagem: C
+
+Biblioteca: Baseada em SDL
